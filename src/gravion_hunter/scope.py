@@ -36,6 +36,18 @@ def _host_of(value: str) -> str:
     return value.split("/")[0].split(":")[0]
 
 
+def _normalize_entry(entry: str) -> str:
+    """Normalise a scope entry to a host or ``*.host`` pattern.
+
+    Operators often paste URLs or ``host:port/path`` forms; storing those
+    verbatim would make the entry never match a parsed host.
+    """
+    value = entry.strip().lower()
+    if value.startswith("*."):
+        return "*." + _host_of(value[2:])
+    return _host_of(value)
+
+
 def _matches(pattern: str, host: str) -> bool:
     pattern = pattern.strip().lower()
     if pattern.startswith("*."):
@@ -69,7 +81,9 @@ class Scope:
                 entry = line[1:].strip().strip("`")
                 if entry:
                     target = scope.in_scope if section == "in" else scope.out_of_scope
-                    target.append(entry.lower())
+                    normalized = _normalize_entry(entry)
+                    if normalized and normalized not in target:
+                        target.append(normalized)
         if not scope.in_scope:
             raise ScopeError("scope file declares no in-scope hosts; refusing to hunt blind")
         return scope
